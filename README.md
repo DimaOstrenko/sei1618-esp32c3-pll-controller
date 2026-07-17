@@ -1,9 +1,14 @@
-# SEI-1618 PLL Controller (ESP32-C3)
+# SEI-1618 PLL Controller (ESP32-C3-Zero)
 
-PlatformIO firmware for an ESP32-C3 mini board that programs a
+PlatformIO firmware for an ESP32-C3-Zero board that programs a
 **SEI-1618PG** fractional PLL synthesizer (driving an external
 **MC12034A** dual-modulus prescaler) to lock a VCO to **1656 MHz** or
 **1728 MHz** from a **10 MHz** reference.
+
+The ESP32-C3-Zero only breaks out GPIO0-10, GPIO20, GPIO21, and
+dedicates GPIO9 to its onboard BOOT button and GPIO10 to its onboard
+WS2812 RGB LED — the pin map below avoids both, plus the usual
+strapping pins (GPIO2/8), leaving GPIO20/21 free as headroom.
 
 Datasheets for all chips referenced below are in [`pdf/`](pdf/):
 `SEI1618.pdf`, `MC12034A.PDF`, plus supporting RF-path parts
@@ -72,26 +77,30 @@ if the reference frequency or prescaler ratio changes.
 
 ## Wiring
 
-### ESP32-C3 <-> SEI-1618PG (digital control, 3.3 V shared logic)
+### ESP32-C3-Zero <-> SEI-1618PG (digital control, 3.3 V shared logic)
 
 Power the SEI1618 from **3.3 V** (it accepts 2.5-5.5 V) so its I/O
 matches the ESP32-C3's logic levels directly — no level shifters
 needed on the control lines.
 
-| ESP32-C3 pin | SEI1618 pin | Signal |
+| ESP32-C3-Zero pin | SEI1618 pin | Signal |
 |---|---|---|
 | GPIO4 | 18 | DATA |
 | GPIO5 | 17 | CLK |
 | GPIO6 | 16 | LE |
 | GPIO7 | 19 | LOCK (input, active low = locked) |
-| GPIO10 | 13 | PDWN (drive low = oscillator stage active) |
+| GPIO3 | 13 | PDWN (drive low = oscillator stage active) |
 
 Optional:
 
-| ESP32-C3 pin | Function |
+| ESP32-C3-Zero pin | Function |
 |---|---|
 | GPIO1 | Channel-select button to GND (`INPUT_PULLUP`) |
-| GPIO3 | Lock-status LED (through a series resistor) |
+| GPIO0 | Lock-status LED (through a series resistor) |
+
+GPIO9 (onboard BOOT button) and GPIO10 (onboard WS2812 RGB LED) are
+intentionally left unused by this firmware to avoid conflicting with
+the board's built-in peripherals — see [`include/Pins.h`](include/Pins.h).
 
 ### SEI1618 <-> MC12034A (RF prescaler loop)
 
