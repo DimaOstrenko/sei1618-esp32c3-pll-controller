@@ -97,10 +97,23 @@ Optional:
 |---|---|
 | GPIO1 | Channel-select button to GND (`INPUT_PULLUP`) |
 | GPIO0 | Lock-status LED (through a series resistor) |
+| GPIO20 | OLED SDA (I2C) |
+| GPIO21 | OLED SCL (I2C) |
 
 GPIO9 (onboard BOOT button) and GPIO10 (onboard WS2812 RGB LED) are
 intentionally left unused by this firmware to avoid conflicting with
 the board's built-in peripherals — see [`include/Pins.h`](include/Pins.h).
+
+### 0.91" I2C OLED (SSD1306, 128x32)
+
+Wired via `Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL)` at I2C address
+`0x3C` (the common default for these modules — try `0x3D` in
+[`src/main.cpp`](src/main.cpp) if the display stays blank). Shows the
+active channel's label in large text with a small "L" in the upper
+right corner while the SEI1618 reports lock; the discrete lock LED
+(`PIN_LOCK_LED`) is kept as a separate, always-available indicator.
+Pulled in via `Adafruit SSD1306` + `Adafruit GFX Library` (see
+`lib_deps` in `platformio.ini`).
 
 ### SEI1618 <-> MC12034A (RF prescaler loop)
 

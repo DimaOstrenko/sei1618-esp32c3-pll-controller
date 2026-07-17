@@ -1,4 +1,7 @@
 #include <Arduino.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include "Pins.h"
 #include "SEI1618.h"
 
@@ -14,20 +17,45 @@ static const SEI1618Constants kConstants = {
 };
 
 struct Channel {
-    const char *name;
+    const char *name;      // serial log label
+    const char *oledLabel; // OLED main label
     double freqMHz;
     SEI1618Channel regs;
 };
 
 static const Channel kChannels[] = {
-    {"1656 MHz", 1656.0, {/*K*/ 0, /*M*/ 24, /*N*/ 51}},
-    {"1728 MHz", 1728.0, {/*K*/ 0, /*M*/ 0, /*N*/ 54}},
+    {"1656 MHz", "10368MHz", 1656.0, {/*K*/ 0, /*M*/ 24, /*N*/ 51}},
+    {"1728 MHz", "TEST",     1728.0, {/*K*/ 0, /*M*/ 0,  /*N*/ 54}},
 };
 static constexpr size_t kNumChannels = sizeof(kChannels) / sizeof(kChannels[0]);
 
 static SEI1618 pll(PIN_SEI_DATA, PIN_SEI_CLK, PIN_SEI_LE, PIN_SEI_LOCK);
 static size_t activeChannel = 0;
 static bool lastButtonState = HIGH;
+
+static constexpr uint8_t OLED_WIDTH = 128;
+static constexpr uint8_t OLED_HEIGHT = 32;
+static constexpr uint8_t OLED_I2C_ADDR = 0x3C; // common for 0.91" SSD1306 modules; try 0x3D if blank
+static Adafruit_SSD1306 oled(OLED_WIDTH, OLED_HEIGHT, &Wire, -1);
+
+static void updateDisplay(bool locked) {
+    const Channel &ch = kChannels[activeChannel];
+
+    oled.clearDisplay();
+
+    oled.setTextSize(2);
+    oled.setTextColor(SSD1306_WHITE);
+    oled.setCursor(0, 8);
+    oled.print(ch.oledLabel);
+
+    if (locked) {
+        oled.setTextSize(1);
+        oled.setCursor(OLED_WIDTH - 6, 0);
+        oled.print("L");
+    }
+
+    oled.display();
+}
 
 static void selectChannel(size_t index) {
     activeChannel = index % kNumChannels;
@@ -47,10 +75,14 @@ void setup() {
     pinMode(PIN_LOCK_LED, OUTPUT);
     digitalWrite(PIN_LOCK_LED, LOW);
 
+    Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
+    oled.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDR);
+
     pll.begin();
     delay(10);
     pll.writeConstants(kConstants);
     selectChannel(0);
+    updateDisplay(false);
 
     Serial.println("SEI1618 PLL controller ready.");
     Serial.println("Press the select button, or send '1'/'2' over serial, to switch channels.");
@@ -75,11 +107,18 @@ void loop() {
     digitalWrite(PIN_LOCK_LED, locked ? HIGH : LOW);
 
     static bool lastLocked = false;
+    static size_t lastDisplayedChannel = activeChannel;
     static unsigned long lastReport = 0;
-    if (locked != lastLocked || millis() - lastReport > 2000) {
+    bool stateChanged = (locked != lastLocked) || (activeChannel != lastDisplayedChannel);
+
+    if (stateChanged || millis() - lastReport > 2000) {
         Serial.printf("%s: %s\n", kChannels[activeChannel].name, locked ? "LOCKED" : "unlocked");
-        lastLocked = locked;
         lastReport = millis();
+    }
+    if (stateChanged) {
+        updateDisplay(locked);
+        lastLocked = locked;
+        lastDisplayedChannel = activeChannel;
     }
 
     delay(20);
